@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,9 +9,9 @@
     <style>
         body { background-color: #f5f5f5; }
         .container { max-width: 500px; margin-top: 50px; }
-        .card-panel { padding: 20px; }
+        .card-panel { padding: 20px; border-radius: 8px; }
         .loader {
-            border: 4px solid #f3f3f3; border-top: 4px solid #4CAF50;
+            border: 4px solid #f3f3f3; border-top: 4px solid #d32f2f;
             border-radius: 50%; width: 24px; height: 24px;
             animation: spin 2s linear infinite; display: inline-block;
             vertical-align: middle; margin-right: 10px;
@@ -19,6 +19,7 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .loading-message { display: flex; align-items: center; justify-content: center; font-size: 1.2em; color: #555; margin-top: 20px; }
         .hide { display: none !important; }
+        .btn { width: 100%; background-color: #d32f2f !important; }
     </style>
 </head>
 <body>
@@ -26,17 +27,19 @@
 <div class="container">
     <div class="row">
         <div class="col s12">
-            <div class="card-panel grey lighten-5 z-depth-1">
-                <h4 class="center-align">Acceso Seguro</h4>
+            <div class="card-panel white z-depth-2">
+                <h4 class="center-align" style="color: #333;">Acceso Seguro</h4>
 
                 <div id="validation-form-container">
                     <form id="validation-form">
                         <div class="input-field">
+                            <i class="material-icons prefix">assignment_ind</i>
                             <input id="rut" type="text" class="validate" name="rut" required>
                             <label for="rut">RUT de la empresa</label>
                             <span id="rut-error" class="helper-text red-text"></span>
                         </div>
                         <div class="input-field">
+                            <i class="material-icons prefix">email</i>
                             <input id="email" type="email" class="validate" name="email" required>
                             <label for="email">Correo electrónico de contacto</label>
                             <span id="email-error" class="helper-text red-text"></span>
@@ -49,7 +52,8 @@
                     <form id="otp-form">
                         <p class="center-align">Se ha enviado un código de acceso a su correo.</p>
                         <div class="input-field">
-                            <input id="otp" type="text" class="validate" name="otp" required>
+                            <i class="material-icons prefix">lock</i>
+                            <input id="otp" type="text" maxlength="6" class="validate" name="otp" required>
                             <label for="otp">Ingrese el código de 6 dígitos</label>
                             <span id="otp-error" class="helper-text red-text"></span>
                         </div>
@@ -58,12 +62,15 @@
                 </div>
 
                 <div id="success-message-container" class="hide">
-                    <p class="center-align">✅ Código validado con éxito. Redirigiendo...</p>
+                    <div class="center-align">
+                        <i class="material-icons large green-text">check_circle</i>
+                        <p style="font-size: 1.2rem;">Código validado con éxito. Redirigiendo...</p>
+                    </div>
                 </div>
 
                 <div id="loading-indicator" class="loading-message hide">
                     <div class="loader"></div>
-                    <span>Cargando datos...</span>
+                    <span>Procesando...</span>
                 </div>
 
             </div>
@@ -73,8 +80,9 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
 <script>
-    // URL Base de tu n8n
-    const N8N_BASE_URL = "https://ampuero777.app.n8n.cloud/webhook-test/solicitudes-sap";
+    // --- CONFIGURACIÓN DE URLS ---
+    const URL_SOLICITAR_OTP = "https://ampuero777.app.n8n.cloud/webhook-test/solicitar-otp-alo";
+    const URL_VALIDAR_OTP = "https://ampuero777.app.n8n.cloud/webhook-test/validar-otp-alo"; 
 
     let userEmailGlobal = '';
     let userRutGlobal = '';
@@ -91,37 +99,27 @@
 
     function showLoading() {
         document.getElementById('loading-indicator').classList.remove('hide');
-        document.getElementById('submit-validation-button').setAttribute('disabled', 'disabled');
-        document.getElementById('submit-otp-button').setAttribute('disabled', 'disabled');
+        document.getElementById('submit-validation-button').disabled = true;
+        document.getElementById('submit-otp-button').disabled = true;
     }
 
     function hideLoading() {
         document.getElementById('loading-indicator').classList.add('hide');
-        document.getElementById('submit-validation-button').removeAttribute('disabled');
-        document.getElementById('submit-otp-button').removeAttribute('disabled');
-    }
-
-    function isValidEmail(email) {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        document.getElementById('submit-validation-button').disabled = false;
+        document.getElementById('submit-otp-button').disabled = false;
     }
 
     async function submitValidation() {
-        var rutInput = document.getElementById('rut');
-        var emailInput = document.getElementById('email');
-        var rutError = document.getElementById('rut-error');
-        var emailError = document.getElementById('email-error');
+        const rutInput = document.getElementById('rut');
+        const emailInput = document.getElementById('email');
         
         userRutGlobal = rutInput.value.trim();
         userEmailGlobal = emailInput.value.trim();
 
-        if (!userRutGlobal) { rutError.textContent = '❌ Por favor, ingrese el RUT.'; return; } else { rutError.textContent = ''; }
-        if (!userEmailGlobal || !isValidEmail(userEmailGlobal)) { emailError.textContent = '❌ Correo inválido.'; return; } else { emailError.textContent = ''; }
-
         showLoading();
 
         try {
-            // Llamada al webhook de n8n para pedir el OTP
-            const response = await fetch(`${N8N_BASE_URL}/request-otp`, {
+            const response = await fetch(URL_SOLICITAR_OTP, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ rut: userRutGlobal, email: userEmailGlobal })
@@ -131,56 +129,58 @@
             hideLoading();
 
             if (data.success) {
-                M.toast({html: data.message || '✅ Código enviado.', classes: 'green darken-1'});
+                M.toast({html: '✅ Código enviado a su email.', classes: 'green darken-1'});
                 document.getElementById('validation-form-container').classList.add('hide');
                 document.getElementById('otp-form-container').classList.remove('hide');
             } else {
-                M.toast({html: '❌ Error: ' + (data.message || 'No se pudo generar el código.'), classes: 'red darken-1'});
+                M.toast({html: '❌ ' + (data.message || 'Error en el sistema.'), classes: 'red darken-1'});
             }
         } catch (error) {
             hideLoading();
-            M.toast({html: '❌ Error al conectar con el servidor n8n.', classes: 'red darken-1'});
-            console.error("Fetch Error:", error);
+            M.toast({html: '❌ Error de conexión con n8n.', classes: 'red darken-1'});
         }
     }
 
     async function submitOTP() {
-        var otpInput = document.getElementById('otp');
-        var otpError = document.getElementById('otp-error');
-        var userOTP = otpInput.value.trim();
+        const otpInput = document.getElementById('otp');
+        const userOTP = otpInput.value.trim();
 
-        if (!userOTP || userOTP.length !== 6) { otpError.textContent = '❌ El código debe ser de 6 dígitos.'; return; } else { otpError.textContent = ''; }
+        if (userOTP.length !== 6) {
+            M.toast({html: 'El código debe ser de 6 dígitos', classes: 'orange'});
+            return;
+        }
 
         showLoading();
 
         try {
-            // Llamada al webhook de n8n para validar el OTP
-            const response = await fetch(`${N8N_BASE_URL}/verify-otp`, {
+            const response = await fetch(URL_VALIDAR_OTP, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ rut: userRutGlobal, email: userEmailGlobal, otp: userOTP })
+                body: JSON.stringify({ 
+                    rut: userRutGlobal, 
+                    email: userEmailGlobal, 
+                    otp: userOTP 
+                })
             });
 
             const data = await response.json();
             hideLoading();
 
             if (data.success) {
-                M.toast({html: '✅ Código validado con éxito', classes: 'green darken-1'});
+                M.toast({html: '✅ Acceso concedido', classes: 'green darken-1'});
                 document.getElementById('otp-form-container').classList.add('hide');
                 document.getElementById('success-message-container').classList.remove('hide');
                 
-                // Redirigir al formulario web enviando los parámetros en la URL
                 setTimeout(() => {
-                    // Asegúrate de que el nombre de este archivo coincida con el que tienes en GitHub Pages (ej: formulario.html)
+                    // Redirección final
                     window.location.href = `formulario.html?rut=${userRutGlobal}&email=${encodeURIComponent(userEmailGlobal)}`;
-                }, 1000);
+                }, 1500);
             } else {
                 M.toast({html: '❌ ' + (data.message || 'Código incorrecto.'), classes: 'red darken-1'});
             }
         } catch (error) {
             hideLoading();
-            M.toast({html: '❌ Error al validar con el servidor n8n.', classes: 'red darken-1'});
-            console.error("Fetch Error:", error);
+            M.toast({html: '❌ Error al validar código.', classes: 'red darken-1'});
         }
     }
 </script>
