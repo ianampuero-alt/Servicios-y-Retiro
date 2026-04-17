@@ -40,10 +40,10 @@
   <div class="card p-4 mb-4">
     <label class="form-label fw-bold">RUT del Cliente</label>
     <div class="input-group">
-      <input type="text" id="rutInput" class="form-control" placeholder="Ej: 76218944-5" readonly>
+      <input type="text" id="rutInput" class="form-control" placeholder="Ej: 76218944-5" oninput="checkRut(this)">
       <button class="btn btn-dark" onclick="buscar()" id="btnBuscar">Buscar Contratos</button>
     </div>
-    <div class="form-text text-muted">Sesión validada.</div>
+    <div class="form-text text-muted">Ingrese su RUT para buscar los contratos asociados.</div>
     
     <div id="loading" class="text-center mt-3 hidden">
       <div class="spinner-border text-danger" role="status"></div>
@@ -70,28 +70,38 @@
   let contratosData = []; 
   let emailUsuarioGlobal = "";
 
-  // --- AUTO-EJECUTAR AL CARGAR ---
+  // --- CARGA INICIAL ---
   window.onload = function() {
-    // 1. Atrapamos los datos de la URL que nos mandó el index.html
     const urlParams = new URLSearchParams(window.location.search);
     let rutParam = urlParams.get('rut');
     emailUsuarioGlobal = urlParams.get('email') || ""; 
 
+    // Rellenamos el RUT por comodidad, pero NO hacemos la búsqueda automática
     if (rutParam) {
       if (rutParam.toUpperCase().startsWith('C')) rutParam = rutParam.substring(1);
       document.getElementById('rutInput').value = rutParam;
-      
-      // 2. Buscamos los contratos automáticamente
-      setTimeout(function() { buscar(); }, 500);
-    } else {
-      // Si no hay RUT en la URL, devolvemos al usuario al login por seguridad
-      window.location.href = "index.html";
     }
   };
+
+  // --- FORMATEADOR RUT ---
+  function checkRut(input) {
+    var raw = input.value.toUpperCase().replace(/[^0-9K]/g, "");
+    if (raw.length === 0) { input.value = ""; return; }
+    var dv = raw.slice(-1);       
+    var cuerpo = raw.slice(0, -1); 
+    if (cuerpo.length === 0) { input.value = dv; } 
+    else { input.value = cuerpo + "-" + dv; }
+  }
 
   // --- LLAMADA A N8N PARA BUSCAR CONTRATOS ---
   async function buscar() {
     var rutVisual = document.getElementById('rutInput').value;
+    
+    if(rutVisual.length < 3) { 
+      Swal.fire('RUT Incompleto', 'Ingrese un RUT válido', 'warning'); 
+      return; 
+    }
+    
     var rutParaSap = "C" + rutVisual;
 
     document.getElementById('loading').classList.remove('hidden');
@@ -111,7 +121,7 @@
         document.getElementById('loading').classList.add('hidden');
         
         if(data.success === false) {
-             Swal.fire('Error', data.message || 'Error al buscar en SAP', 'error');
+             Swal.fire('Atención', data.message || 'No se encontraron contratos', 'info');
              return;
         }
         
@@ -120,7 +130,7 @@
     } catch(err) {
         document.getElementById('btnBuscar').disabled = false;
         document.getElementById('loading').classList.add('hidden');
-        Swal.fire('Error', 'Fallo de conexión con n8n al buscar contratos.', 'error');
+        Swal.fire('Error', 'Fallo de conexión con el servidor.', 'error');
     }
   }
 
@@ -278,7 +288,6 @@
       }
     }).then((result) => {
       if (result.isConfirmed) {
-        // Armamos el paquete de datos para n8n
         var payload = {
           rut: "C" + document.getElementById('rutInput').value,
           email: emailUsuarioGlobal, 
